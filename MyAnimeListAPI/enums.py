@@ -12,4 +12,4 @@ class Scopes(CustomBaseEnum):
 
 class TokenType(CustomBaseEnum):
     BEARER = "Authorization"
-    API_KEY = "X-MAL-CLIENT-ID"
+    API_KEY = "api_key"

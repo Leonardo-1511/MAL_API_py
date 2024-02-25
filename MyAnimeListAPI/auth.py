@@ -22,6 +22,7 @@ class BaseAuth:
     ):
         self.client_id = str(client_id)
         self._token_type = token_type
+        self_access_token = ""
 
     @staticmethod
     def _make_url(base_url: str, url_path: str | list[str] = None, url_params: dict = None) -> str:
@@ -54,10 +55,7 @@ class BaseAuth:
 
     @property
     def auth_header(self):
-        if self._token_type is enums.TokenType.BEARER:
-            return {"Authorization": f"Bearer {self._access_token}"}
-        if self._token_type is enums.TokenType.API_KEY:
-            return {"X-MAL-CLIENT-ID": self.client_id}
+        raise NotImplementedError("You forgot to implement the auth_header getter.")
 
 
 class MainAuth(BaseAuth):
@@ -72,7 +70,7 @@ class MainAuth(BaseAuth):
         self.client_basic = str(b64encode(f"{self.client_id}:{self.client_secret}".encode("utf-8")))
         self.callback_url = callback_url
         self._access_token = ""
-        self._refresh_token = ""
+        self.refresh_token = ""
         self._token_expiry_unix = ""
 
     @classmethod
@@ -80,20 +78,28 @@ class MainAuth(BaseAuth):
                   client_id: str,
                   client_secret: str = "",
                   file="creds.json",
+                  decoded_file: dict = None,
                   callback_url: str = "https://localhost"
                   ):
-        with open(file, "r") as file:
-            content = loads(file.read())
+        if decoded_file is not None:
+            content = decoded_file
+        else:
+            with open(file, "r") as file:
+                content = loads(file.read())
         access_token = content[client_id]["access_token"]
         refresh_token = content[client_id]["refresh_token"]
         token_expiry_unix = content[client_id]["unix_expire"]
 
         auth_class = cls(client_id=client_id, client_secret=client_secret, callback_url=callback_url)
         auth_class._access_token = access_token
-        auth_class._refresh_token = refresh_token
+        auth_class.refresh_token = refresh_token
         auth_class._token_expiry_unix = token_expiry_unix
 
         return auth_class
+
+    @property
+    def auth_header(self):
+        return {"Authorization": f"Bearer {self._access_token}"}
 
     def _create_code_challenge(self) -> str:
         self.code_challenge = secrets.token_urlsafe(64)[:127]
@@ -140,7 +146,7 @@ class MainAuth(BaseAuth):
         response["unix_expire"] = unix_expire_time
         return response
 
-    def refresh_token(self, refresh_token: str) -> dict:  # Technically the same as get_token (only the body change)
+    def refresh_token(self, refresh_token: str) -> dict:  # Technically the same as get_token (only the body changes)
         token_body = {
             "client_id": self.client_id,
             "grant_type": "refresh_token",
@@ -167,3 +173,8 @@ class MainAuth(BaseAuth):
 class APIAuth(BaseAuth):
     def __init__(self, client_id: str):
         super().__init__(client_id=client_id, token_type=enums.TokenType.API_KEY)
+        self._access_token = client_id
+
+    @property
+    def auth_header(self):
+        return {"X-MAL-CLIENT-ID": self.client_id}
