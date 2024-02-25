@@ -20,7 +20,6 @@ class BaseAuth:
             client_id: str,
             token_type: enums.TokenType
     ):
-        # assert token_type is enums.TokenType
         self.client_id = str(client_id)
         self._token_type = token_type
 
@@ -91,7 +90,7 @@ class MainAuth(BaseAuth):
 
         auth_class = cls(client_id=client_id, client_secret=client_secret, callback_url=callback_url)
         auth_class._access_token = access_token
-        auth_class.refresh_token = refresh_token
+        auth_class._refresh_token = refresh_token
         auth_class._token_expiry_unix = token_expiry_unix
 
         return auth_class
@@ -100,7 +99,7 @@ class MainAuth(BaseAuth):
         self.code_challenge = secrets.token_urlsafe(64)[:127]
         return str(self.code_challenge)
 
-    def get_authorize_url(self, scope: enums.Scopes, code_challenge: str = None, state: str = None) -> str:
+    def get_authorize_url(self, scope: enums.Scopes, code_challenge: str, state: str = None) -> str:
         auth_params = {
             "response_type": "code",
             "client_id": self.client_id,
@@ -138,10 +137,10 @@ class MainAuth(BaseAuth):
 
         response = dict(req.json())
         unix_expire_time = self._get_expiry_time_unix(response["expire_in"])
-        response.update({"unix_expire": unix_expire_time})
+        response["unix_expire"] = unix_expire_time
         return response
 
-    def refresh_token(self, refresh_token: str) -> dict:  # Technically the same as get_token (only the headers change)
+    def refresh_token(self, refresh_token: str) -> dict:  # Technically the same as get_token (only the body change)
         token_body = {
             "client_id": self.client_id,
             "grant_type": "refresh_token",
